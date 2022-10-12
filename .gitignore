@@ -1,2 +1,5 @@
 .git/
 .deps/
+contracts/1_Storage.sol
+contracts/2_Owner.sol
+contracts/3_Ballot.sol
