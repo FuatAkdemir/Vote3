@@ -13,7 +13,7 @@ Seçim sona ermeden sonuçlar görüntülenmeyecek.
 pragma solidity ^0.8.13;
 
 contract VotingContract {
-    
+
     struct Vote {
         uint x;
         string y;
