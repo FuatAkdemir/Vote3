@@ -25,6 +25,9 @@ After the election is over, the committee will announce the total votes won by t
 pragma solidity ^0.8.13;
 
 contract VotingContract {
+    event AddCandidateLog(string candidate, string message);
+    event VoteLog(uint from, string message, string to);
+    event WinnerLog(string message, string winner);
 
     struct Candidate {
         string candidateName;
@@ -56,9 +59,9 @@ contract VotingContract {
     uint endTime;           // End time of voting
     address committee;      // Owner of this contract (observer committee) 
 
-    mapping (uint => Voter) public voters;    // Stores a 'Voter' struct for each possible address
-    mapping (string => Candidate) public candidateMap;
-    mapping (string => bool) public inserted; 
+    mapping (uint => Voter) voters;    // Stores a 'Voter' struct for each possible address
+    mapping (string => Candidate) candidateMap;
+    mapping (string => bool) inserted; 
     Candidate[] candidates;    // Array of 'Candidate' struct for all candidates
 
     constructor () {
@@ -83,6 +86,8 @@ contract VotingContract {
         }));
 
         inserted[_candidateName] = true;
+        
+        emit AddCandidateLog(_candidateName, " is added.");
 
     }
 
@@ -103,13 +108,15 @@ contract VotingContract {
                 candidates[i].voteCount++;
             }
         }
+
+        emit VoteLog(_from, " voted to ", _to);
     }
 
-    function results () OnlyCommittee Ended public view returns(Candidate[] memory _results) {
+    function results () OnlyCommittee Started Ended public view returns(Candidate[] memory _results) {
         _results = candidates;
     }
     
-    function winner() public view returns (uint _winner) {
+    function winnerIndex() Started Ended internal view returns (uint _winner) {
 
         uint winningVoteCount;
         for (uint i=0; i<candidates.length; i++) 
@@ -121,8 +128,9 @@ contract VotingContract {
         }
     }
 
-    function winnerName() public view returns (string memory _winner) {
-        _winner = candidates[winner()].candidateName;
+    function winner() Started Ended public returns (string memory _winner) {
+        _winner = candidates[winnerIndex()].candidateName;
+        emit WinnerLog("Winner is ", _winner);
     }
 
     function passingTime () Started external  view returns (uint _passedTime) {
