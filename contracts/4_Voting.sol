@@ -6,6 +6,7 @@ Seçimin başlangıç ve bitiş süresi olacak. Öncesinde ve sonrasında oy kul
 Başlangıç süresi deploy'dan 1 dk sonradır ve bitiş başlangıçtan 1 dk sonradır.
 Adaylar sözleşme deploy edildikten sonra ve seçim başlamadan girilecek. 
 Seçmenler sadece 1 oy kullanacak. Seçmenler kimlik numaralarıyla kaydedilecek.
+Farklı adreslerden oy kullanılabilir, ancak aynı kimlik numarasına sahip kişiler oy kullanamaz.
 Adaylar da oy kullanabilecek.
 Seçim sona ermeden sonuçlar kurul dahil kimse tarafından görüntülenmeyecek.
 Seçim sona erince kurul adayların kazandığı toplam oyları açıklayacak. 
@@ -17,6 +18,7 @@ The voting will have a start and end time. There will be no voting before or aft
 Start time is 1 minute after deploy and end time is 1 minute after start.
 Candidates will be entered after the contract is deployed and before the election begins.
 Voters will only cast 1 vote. Voters will be registered with their ID numbers.
+Votes can be cast from different addresses, but people with the same ID number cannot vote.
 Candidates can also vote.
 The results will not be viewed by anyone, including the committee, before the election is over.
 After the election is over, the committee will announce the total votes won by the candidates.
@@ -27,14 +29,13 @@ pragma solidity ^0.8.13;
 contract VotingContract {
     event AddCandidateLog(string candidate, string message);
     event VoteLog(uint from, string message, string to);
-    event WinnerLog(string message, string winner);
 
-    struct Candidate {
+    struct Candidate {    // Candidate struct
         string candidateName;
         uint voteCount;
     }
 
-    struct Voter {
+    struct Voter {    // Voter struct
         uint voterIdNumber;
         bool voted;
         string votedTo;
@@ -60,8 +61,8 @@ contract VotingContract {
     address committee;      // Owner of this contract (observer committee) 
 
     mapping (uint => Voter) voters;    // Stores a 'Voter' struct for each possible address
-    mapping (string => Candidate) candidateMap;
-    mapping (string => bool) inserted; 
+    mapping (string => Candidate) candidateMap;     // Stores candidate struct
+    mapping (string => bool) inserted;      // Has the relevant candidate been added?
     Candidate[] candidates;    // Array of 'Candidate' struct for all candidates
 
     constructor () {
@@ -70,27 +71,31 @@ contract VotingContract {
         endTime = startTime + 60;              // Voting ends 1 minute after the contract is uploaded.
     }
 
+    // Function to run when committee adds candidates
     function addCandidate(string calldata _candidateName) OnlyCommittee public {
         
         require(block.timestamp < startTime, "THE ELECTION STARTED, CANDIDATES CANNOT BE ADDED!");
         require(!inserted[_candidateName], "THE CANDIDATE IS ALREADY ADDED!");
         
+        // Adds the new candidate to candidate mapping
         candidateMap[_candidateName] = Candidate({
             candidateName: _candidateName,
             voteCount: 0
         });
         
+        // Adds the new candidate to candidates array 
         candidates.push(Candidate({
             candidateName: _candidateName,
             voteCount: 0
         }));
 
-        inserted[_candidateName] = true;
+        inserted[_candidateName] = true;    // If the candidate has been added, don't add again
         
-        emit AddCandidateLog(_candidateName, " is added.");
+        emit AddCandidateLog(_candidateName, " IS ADDED.");     // Log this when a candidate added 
 
     }
 
+    // Function that runs when someone voted
     function vote(uint _from, string memory _to) Started public {
         require(endTime > block.timestamp, "ELECTION ENDED!");      
         Voter storage sender = voters[_from];
@@ -101,7 +106,7 @@ contract VotingContract {
         sender.voted = true;
         sender.votedTo = _to;
 
-        candidateMap[_to].voteCount++; 
+        // Increase the number of votes of the relevant candidate
         for(uint i; i<candidates.length; i++){
             //if(keccak256(abi.encodePacked((candidates[i].candidateName))) == keccak256(abi.encodePacked((_to)))){
             if(keccak256(bytes((candidates[i].candidateName))) == keccak256(bytes((_to)))){
@@ -109,13 +114,15 @@ contract VotingContract {
             }
         }
 
-        emit VoteLog(_from, " voted to ", _to);
+        emit VoteLog(_from, " VOTED TO ", _to);     // Log this when a voter voted 
     }
 
-    function results () OnlyCommittee Started Ended public view returns(Candidate[] memory _results) {
-        _results = candidates;
+    // Returns results of election (names and vote counts)
+    function results () OnlyCommittee Started Ended public view returns(Candidate[] memory) {
+        return candidates;  // If voting started and ended, committee can share the results
     }
-    
+
+    // Returns winner's index on candidates array
     function winnerIndex() Started Ended internal view returns (uint _winner) {
 
         uint winningVoteCount;
@@ -123,24 +130,33 @@ contract VotingContract {
         {
             if (candidates[i].voteCount > winningVoteCount) {
                 winningVoteCount = candidates[i].voteCount;
-                _winner = i;
+                _winner = i;    // Winner index
             }
         }
     }
 
-    function winner() Started Ended public returns (string memory _winner) {
-        _winner = candidates[winnerIndex()].candidateName;
-        emit WinnerLog("Winner is ", _winner);
+    // Returns winner name
+    function winner() Started Ended public view returns (string memory _winner) {
+        _winner = candidates[winnerIndex()].candidateName;      // Winner name
     }
 
-    function passingTime () Started external  view returns (uint _passedTime) {
+    // Remaining time to election (second)
+    function remainingTimeToElection () public view returns(uint _remainingTimeToElection){
+        require(block.timestamp < startTime, "THE ELECTION STARTED!");
         require(endTime > block.timestamp, "ELECTION IS OVER!");
-        _passedTime = block.timestamp - startTime;   
+        _remainingTimeToElection =  startTime - block.timestamp;
     }
 
+    // Remaining time the end of the election (second)
     function remainingTime () Started external view returns (uint _remainingTime) {
         require(endTime > block.timestamp, "ELECTION IS OVER!");
         _remainingTime = endTime - block.timestamp;
+    }
+
+    // Time passed since the start of the election (second)
+    function passingTime () Started external  view returns (uint _passedTime) {
+        require(endTime > block.timestamp, "ELECTION IS OVER!");
+        _passedTime = block.timestamp - startTime;   
     }
 
 }
