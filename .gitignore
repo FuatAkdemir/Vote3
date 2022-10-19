@@ -1,4 +1,0 @@
-.git/*
-.deps/*
-contracts/*
-!contracts/4_Voting.sol
